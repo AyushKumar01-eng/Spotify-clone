@@ -1,0 +1,250 @@
+let currsong = new Audio();
+let songs;
+var currfolder;
+let previousVolume = 1; // Store previous volume level
+let isMuted = false; 
+
+//GETTING SONGS FROM SONGS FOLDER
+async function getsongs(folder) {
+    currfolder = folder
+    let a = await fetch(http://127.0.0.1:5500/${currfolder}/)
+    let response = await a.text()
+    let div = document.createElement('div')
+    div.innerHTML = response
+    let uls = div.getElementsByTagName('a')
+    songs = []
+    for (let index = 0; index < uls.length; index++) {
+        const element = uls[index];
+        if (element.href.endsWith(".mp3")) {
+            songs.push(element.href.split(/${currfolder}/)[1])
+        }
+    }
+
+    //CREATING SONGLIST
+    let songul = document.querySelector(".songlist").getElementsByTagName('ul')[0]
+    songul.innerHTML = ""
+    for (const song of songs) {
+        songul.innerHTML = songul.innerHTML + `<li>
+        <i class="fa-solid fa-music"></i>
+        <div class="sng">${(song.replaceAll('%20', " "))}</div>
+        <i class="fa-solid fa-play"></i>
+        </li>`
+    }
+
+
+    //SENDING CLICKED MUSIC TO PLAY
+    Array.from(document.querySelector('.songlist').getElementsByTagName('li')).forEach(e => {
+        e.addEventListener("click", ele => {
+            playmusic(e.querySelector('.sng').firstChild.textContent)
+        })
+    })
+
+}
+
+
+
+
+
+//GETTING SECONDS IN SS/MM FORM
+function formatMMSS(totalSeconds) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+
+    const mm = String(minutes).padStart(2, '0');
+    const ss = String(seconds).padStart(2, '0');
+
+    return ${mm}:${ss};
+}
+
+
+
+//PLAYING MUSIC
+const playmusic = (track, pause = false) => {
+    currsong.src = /${currfolder}/ + track
+    if (!pause) {
+        currsong.play()
+        document.getElementById('play').removeAttribute("class")
+        document.getElementById('play').setAttribute("class", "fa-solid fa-pause")
+    }
+    document.querySelector('.songinfo').innerHTML = decodeURI(track)
+}
+
+
+
+
+
+async function displayalbum() {
+    let a = await fetch(http://127.0.0.1:5500/songs/)
+    let response = await a.text()
+    let div = document.createElement('div')
+    div.innerHTML = response
+    let cardcont = document.querySelector('.cardcontainer')
+    let anchors = div.getElementsByTagName('a')
+    let arr = Array.from(anchors)
+    for (let index = 0; index < arr.length; index++) {
+        const e = arr[index];
+        if (e.href.includes('songs/')) {
+            let folder = e.href.split('/').slice(0)[4]
+            //GET METADATA
+            let a = await fetch(`http://127.0.0.1:5500/songs/${folder}/info.json `)
+            let response = await a.json()
+            cardcont.innerHTML = cardcont.innerHTML + ` 
+             <div data-folder=${folder} class="card">
+                        <div class="play-button">
+                            <i class="fas fa-play"></i>
+                        </div>
+                        <img src="/songs/${folder}/cover.jpg" alt="">
+                        <h2>${response.title}</h2>
+                        <p>${response.description}</p>
+                    </div>`
+        }
+        //TO CHANGE BETWEEN PLAYLISTS ON CLICK
+    }
+        Array.from(document.getElementsByClassName('card')).forEach(e => {
+            e.addEventListener('click', async item => {
+                console.log(item, item.currentTarget.dataset)
+                songs = await getsongs(songs/${item.currentTarget.dataset.folder})
+            })
+        })
+}
+
+
+
+async function main() {
+    await getsongs("songs/rd")
+    playmusic(songs[0], true)
+
+    //DISPLAY ALL ALBUMS PRESENT
+    displayalbum()
+
+
+    //PAUSE AND PLAY SYSTEM AND DESIGNING
+    play.addEventListener('click', () => {
+        if (currsong.paused) {
+            currsong.play()
+            document.getElementById('play').removeAttribute("class")
+            document.getElementById('play').setAttribute("class", "fa-solid fa-pause")
+        }
+        else {
+            currsong.pause()
+            document.getElementById('play').removeAttribute("class")
+            document.getElementById('play').setAttribute("class", "fa-solid fa-play")
+        }
+
+    })
+
+
+    //TIMESTAMP SYSTEM
+    currsong.addEventListener('timeupdate', () => {
+        document.querySelector('.songtime').innerHTML = ${formatMMSS(currsong.currentTime)}/${formatMMSS(currsong.duration)}
+
+        document.querySelector('.circle').style.left = (currsong.currentTime / currsong.duration) * 100 + '%'
+    })
+    //SEEKBAR FUNCTIONING
+    document.querySelector('.seekbar').addEventListener('click', e => {
+        let percent = (e.offsetX / e.target.getBoundingClientRect().width) * 100
+        document.querySelector('.circle').style.left = percent + "%"
+
+        currsong.currentTime = ((currsong.duration) * percent) / 100
+    })
+
+
+    //HAMBUGER
+    document.querySelector('.ham').addEventListener('click', () => {
+        document.querySelector('.left').style.left = 0
+    })
+    //CROSSING LEFT PANEL
+    document.querySelector('#cross').addEventListener('click', () => {
+        document.querySelector('.left').style.left = -120 + "%"
+    })
+
+//PREVIOUS BUTTON FUNCTIONING
+prev.addEventListener('click', () => {
+    console.log('prev clicked')
+    let index = songs.indexOf(currsong.src.split('/').pop()) // Changed to 'songs'
+    if ((index - 1) >= 0) {
+        playmusic(songs[index - 1]) 
+    }
+})
+
+//NEXT BUTTON FUNCTIONING
+next.addEventListener('click', () => {
+    console.log('next clicked')
+    let index = songs.indexOf(currsong.src.split('/').pop()) 
+    if ((index + 1) < songs.length) { 
+        playmusic(songs[index + 1]) 
+    }
+    else if ((index + 1) >= songs.length) { 
+        playmusic(songs[0]) 
+    }
+})
+
+
+
+
+  document.querySelector('.range').getElementsByTagName('input')[0].addEventListener('change', (e) => {
+    const volumeValue = parseInt(e.target.value) / 100;
+    currsong.volume = volumeValue;
+    
+    if (volumeValue == 0) {
+        document.querySelector('#novol').style.display = 'block';
+        document.querySelector('#volumei').style.display = 'none';
+        isMuted = true;
+    } else {
+        document.querySelector('#novol').style.display = 'none';
+        document.querySelector('#volumei').style.display = 'block';
+        isMuted = false;
+        if (volumeValue > 0) {
+            previousVolume = volumeValue; // Store non-zero volume
+        }
+    }
+});
+
+//VOLUME ICON MUTE BUTTON
+document.querySelector('#volumei').addEventListener('click', e => {
+    // Since we're clicking on #volumei, we want to MUTE
+    previousVolume = currsong.volume > 0 ? currsong.volume : previousVolume; // Store current volume
+    currsong.volume = 0;
+    isMuted = true;
+    
+    // Update slider to 0
+    document.querySelector('.range').getElementsByTagName('input')[0].value = 0;
+    
+    // Update icons
+    document.querySelector('#novol').style.display = 'block';
+    document.querySelector('#volumei').style.display = 'none';
+});
+
+//NO VOLUME ICON UNMUTE BUTTON
+document.querySelector('#novol').addEventListener('click', e => {
+    // Since we're clicking on #novol, we want to UNMUTE
+    const restoreVolume = previousVolume > 0 ? previousVolume : 0.5;
+    currsong.volume = restoreVolume;
+    isMuted = false;
+    
+    // Update slider to match restored volume
+    document.querySelector('.range').getElementsByTagName('input')[0].value = restoreVolume * 100;
+    
+    // Update icons
+    document.querySelector('#novol').style.display = 'none';
+    document.querySelector('#volumei').style.display = 'block';
+});
+
+    //playing next song automatically
+    currsong.addEventListener('ended', () => {
+        setTimeout(() => {
+            let index = songs.indexOf(currsong.src.split('/').pop())
+            if ((index + 1) < songs.length) {
+                playmusic(songs[index + 1])
+            }
+            else if ((index + 1) >= songs.length) {
+                playmusic(songs[0])
+            }
+        }, 3000);
+    })
+
+
+}
+
+
+main()
